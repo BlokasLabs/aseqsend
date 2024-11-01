@@ -1,0 +1,14 @@
+Source: aseqwrite
+Section: sound
+Priority: optional
+Maintainer: Blokas <hello@blokas.io>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Homepage: https://blokas.io/
+Rules-Requires-Root: no
+
+Package: aseqwrite
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: aseqwrite is a simple command line utility to write MIDI events to an ALSA Sequencer port.

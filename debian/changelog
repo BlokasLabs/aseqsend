@@ -1,0 +1,12 @@
+aseqwrite (1.1.0-1) UNRELEASED; urgency=low
+
+  * Fix: Subscribe to destination ALSA Sequencer ports to ensure they are open.
+  * Renamed from aseqsend to aseqwrite, as alsa-utils introduced its own aseqsend.
+
+ -- Giedrius Trainavičius <giedrius@blokas.io>  Fri, 01 Nov 2024 04:56:57 +0000
+
+aseqsend (1.0.0-1) UNRELEASED; urgency=low
+
+  * Initial release.
+
+ -- Giedrius Trainavičius <giedrius@blokas.io>  Wed, 19 Jul 2023 11:01:41 +0300
