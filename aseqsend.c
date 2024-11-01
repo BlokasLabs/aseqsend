@@ -1,7 +1,7 @@
 /*
  * aseqsend.c - send MIDI events to the ALSA sequencer clients
  *
- * Copyright (c) 2023 Vilniaus Blokas UAB <hello@blokas.io>
+ * Copyright (c) 2023 - 2024 Vilniaus Blokas UAB <hello@blokas.io>
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -48,7 +48,7 @@ static void parse_ports(const char *arg)
 		err = snd_seq_parse_address(g_seq, &g_ports[g_port_count - 1], port_name);
 		if (err < 0)
 		{
-			fprintf(stderr, "Invalid port %s - %s", port_name, snd_strerror(err));
+			fprintf(stderr, "Invalid port %s - %s\n", port_name, snd_strerror(err));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -56,7 +56,7 @@ static void parse_ports(const char *arg)
 	free(buf);
 }
 
-unsigned char parse_hex(const char *str)
+static unsigned char parse_hex(const char *str)
 {
 	unsigned char b = 0;
 
@@ -86,12 +86,12 @@ failure:
 
 static void print_usage()
 {
-	printf("Usage: aseqsend [--help] [--version] <client:port> 90 40 30 (hex bytes)\n");
+	printf("Usage: aseqsend [--help] [--version] <client:port[,...]> 90 40 30 (hex bytes)\n");
 }
 
 static void print_version()
 {
-	printf("aseqsend 1.0.0, © Blokas https://blokas.io/\n");
+	printf("aseqsend 1.1.0, © Blokas https://blokas.io/\n");
 }
 
 static void parse_args(int argc, char **argv)
@@ -124,14 +124,14 @@ static void parse_args(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	parse_args(argc, argv);
-
-	int err = snd_seq_open(&g_seq, "default", SND_SEQ_OPEN_DUPLEX, 0);
+	int i, my_port, err = snd_seq_open(&g_seq, "default", SND_SEQ_OPEN_OUTPUT, 0);
 	if (err < 0)
 	{
 		fprintf(stderr, "Error opening ALSA sequencer. (%d)\n", err);
 		return 1;
 	}
+
+	parse_args(argc, argv);
 
 	err = snd_seq_set_client_name(g_seq, "aseqsend");
 	if (err < 0)
@@ -140,41 +140,85 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	err = snd_seq_create_simple_port(g_seq, "aseqsend",
-			SND_SEQ_PORT_CAP_WRITE,
+	my_port = snd_seq_create_simple_port(g_seq, "aseqsend",
+			SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_NO_EXPORT,
 			SND_SEQ_PORT_TYPE_MIDI_GENERIC | SND_SEQ_PORT_TYPE_APPLICATION);
 
+	if (my_port < 0)
+	{
+		fprintf(stderr, "Error creating sequencer port. (%d)\n", my_port);
+		return 1;
+	}
+
+	snd_seq_port_info_t *me;
+	snd_seq_port_info_alloca(&me);
+	err = snd_seq_get_port_info(g_seq, my_port, me);
 	if (err < 0)
 	{
-		fprintf(stderr, "Error creating sequencer port. (%d)\n", err);
+		fprintf(stderr, "Error getting own port info. (%d)\n", err);
 		return 1;
+	}
+
+	snd_seq_addr_t sender = *snd_seq_port_info_get_addr(me);
+
+	snd_seq_port_subscribe_t *sub;
+	snd_seq_port_subscribe_alloca(&sub);
+	snd_seq_port_subscribe_set_sender(sub, &sender);
+
+	for (i=0; i<g_port_count; ++i)
+	{
+		snd_seq_port_subscribe_set_dest(sub, &g_ports[i]);
+		err = snd_seq_subscribe_port(g_seq, sub);
+		if (err < 0)
+		{
+			fprintf(stderr, "Error subscribing to port %d:%d. (%d)\n", g_ports[i].client, g_ports[i].port, err);
+			return 1;
+		}
 	}
 
 	snd_midi_event_t *midi_event;
 	snd_midi_event_new(256, &midi_event);
 	snd_seq_event_t ev;
 	snd_seq_ev_clear(&ev);
+	snd_seq_ev_set_source(&ev, my_port);
 	snd_seq_ev_set_subs(&ev);
 	snd_seq_ev_set_direct(&ev);
-	snd_seq_ev_set_source(&ev, 0);
-	int i,j;
+
 	for (i=2; i<argc; ++i)
 	{
 		unsigned char b = parse_hex(argv[i]);
 		if (snd_midi_event_encode_byte(midi_event, b, &ev) == 1)
 		{
-			for (j=0; j<g_port_count; ++j)
+			err = snd_seq_event_output(g_seq, &ev);
+			if (err < 0)
 			{
-				snd_seq_ev_set_dest(&ev, g_ports[j].client, g_ports[j].port);
-				snd_seq_event_output(g_seq, &ev);
+				fprintf(stderr, "Error sending MIDI event. (%d)\n", err);
+				return 1;
 			}
 		}
 	}
-	snd_seq_drain_output(g_seq);
+	err = snd_seq_drain_output(g_seq);
+	if (err < 0)
+	{
+		fprintf(stderr, "Error draining output. (%d)\n", err);
+		return 1;
+	}
+
 	snd_midi_event_free(midi_event);
 
-	snd_seq_delete_simple_port(g_seq, 0);
-	snd_seq_close(g_seq);
+	err = snd_seq_delete_simple_port(g_seq, my_port);
+	if (err < 0)
+	{
+		fprintf(stderr, "Error deleting port. (%d)\n", err);
+		return 1;
+	}
+
+	err = snd_seq_close(g_seq);
+	if (err < 0)
+	{
+		fprintf(stderr, "Error closing ALSA sequencer. (%d)\n", err);
+		return 1;
+	}
 
 	return 0;
 }
