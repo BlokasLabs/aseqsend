@@ -1,5 +1,5 @@
 /*
- * aseqsend.c - send MIDI events to the ALSA sequencer clients
+ * aseqwrite.c - send MIDI events to the ALSA sequencer clients
  *
  * Copyright (c) 2023 - 2024 Vilniaus Blokas UAB <hello@blokas.io>
  *
@@ -86,12 +86,12 @@ failure:
 
 static void print_usage()
 {
-	printf("Usage: aseqsend [--help] [--version] <client:port[,...]> 90 40 30 (hex bytes)\n");
+	printf("Usage: aseqwrite [--help] [--version] <client:port[,...]> 90 40 30 (hex bytes)\n");
 }
 
 static void print_version()
 {
-	printf("aseqsend 1.1.0, © Blokas https://blokas.io/\n");
+	printf("aseqwrite 1.1.0, © Blokas https://blokas.io/\n");
 }
 
 static void parse_args(int argc, char **argv)
@@ -133,14 +133,14 @@ int main(int argc, char **argv)
 
 	parse_args(argc, argv);
 
-	err = snd_seq_set_client_name(g_seq, "aseqsend");
+	err = snd_seq_set_client_name(g_seq, "aseqwrite");
 	if (err < 0)
 	{
 		fprintf(stderr, "Error setting client name. (%d)\n", err);
 		return 1;
 	}
 
-	my_port = snd_seq_create_simple_port(g_seq, "aseqsend",
+	my_port = snd_seq_create_simple_port(g_seq, "aseqwrite",
 			SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_NO_EXPORT,
 			SND_SEQ_PORT_TYPE_MIDI_GENERIC | SND_SEQ_PORT_TYPE_APPLICATION);
 

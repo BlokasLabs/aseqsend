@@ -6,9 +6,14 @@ INSTALL?=install
 INSTALL_PROGRAM?=$(INSTALL)
 INSTALL_DATA?=$(INSTALL) -m 644
 
-aseqsend: aseqsend.c
-	gcc -o $@ $< -lasound
+.PHONY: clean
 
-install: aseqsend
+aseqwrite: aseqwrite.c
+	gcc -O3 -o $@ $< -lasound
+
+install: aseqwrite
 	mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_PROGRAM) aseqsend $(DESTDIR)$(BINDIR)/
+	$(INSTALL_PROGRAM) aseqwrite $(DESTDIR)$(BINDIR)/
+
+clean:
+	rm -f aseqwrite
